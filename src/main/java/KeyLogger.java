@@ -2,17 +2,25 @@ import lc.kra.system.keyboard.GlobalKeyboardHook;
 import lc.kra.system.keyboard.event.GlobalKeyAdapter;
 import lc.kra.system.keyboard.event.GlobalKeyEvent;
 
+import java.io.*;
 import java.util.HashMap;
 
 public class KeyLogger {
     private static boolean run = true;
-    //    입력 기록(순서 상관x)
+    private final String logFilePath = System.getProperty("user.dir") + "/log.txt";
     private HashMap<Integer, Integer> map = new HashMap<>();
     private GlobalKeyboardHook keyboardHook;
 
-    public KeyLogger() {
-//        File 객체 open
-//        버퍼? 버퍼쓸꺼면 죽기전에 버퍼에 있는거 File에 flush하고 close
+    //    IOException[FileNotFoundException], ClassNotFoundException
+    public KeyLogger() throws IOException, ClassNotFoundException {
+        try {
+            file2Map();
+        } catch (IOException e) {
+            e.printStackTrace();
+        } catch (ClassNotFoundException e) {
+            e.printStackTrace();
+        }
+
         // Might throw a UnsatisfiedLinkError if the native library fails to load or a RuntimeException if hooking fails
         keyboardHook = new GlobalKeyboardHook(true); // Use false here to switch to hook instead of raw input
         keyboardHook.addKeyListener(new GlobalKeyAdapter() {
@@ -26,6 +34,12 @@ public class KeyLogger {
                 int virtualKeyCode = event.getVirtualKeyCode();
                 int nextValue = map.getOrDefault(virtualKeyCode, 0) + 1;
                 map.put(virtualKeyCode, nextValue);
+                try {
+                    map2File();
+                } catch (IOException e) {
+                    e.printStackTrace();
+                    throw new RuntimeException(e);
+                }
             }
         });
 
@@ -35,9 +49,27 @@ public class KeyLogger {
             }
         } catch (InterruptedException e) {
             //Do nothing
+            e.printStackTrace();
         } finally {
+            map2File();
             keyboardHook.shutdownHook();
         }
     }
 
+    private void map2File() throws IOException {
+        FileOutputStream fileOutputStream = new FileOutputStream(logFilePath);
+        ObjectOutputStream objectOutputStream = new ObjectOutputStream(fileOutputStream);
+        objectOutputStream.writeObject(map);
+        objectOutputStream.close();
+        fileOutputStream.close();
+    }
+
+    private void file2Map() throws IOException, ClassNotFoundException {
+        FileInputStream fileInputStream = new FileInputStream(logFilePath);
+        ObjectInputStream objectInputStream = new ObjectInputStream(fileInputStream);
+        //        FIXME try to generify KeyLogger.java
+        map = (HashMap<Integer, Integer>) objectInputStream.readObject();
+        objectInputStream.close();
+        fileInputStream.close();
+    }
 }
