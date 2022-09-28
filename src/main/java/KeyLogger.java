@@ -1,3 +1,4 @@
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lc.kra.system.keyboard.GlobalKeyboardHook;
 import lc.kra.system.keyboard.event.GlobalKeyAdapter;
 import lc.kra.system.keyboard.event.GlobalKeyEvent;
@@ -8,6 +9,8 @@ import java.util.HashMap;
 public class KeyLogger {
     private static boolean run = true;
     private final String logFilePath = System.getProperty("user.dir") + "/log.txt";
+    private final String logJsonFilePath = System.getProperty("user.dir") + "/log.json";
+    private final ObjectMapper om = new ObjectMapper();
     private HashMap<Integer, Integer> map = new HashMap<>();
     private GlobalKeyboardHook keyboardHook;
 
@@ -15,6 +18,7 @@ public class KeyLogger {
     public KeyLogger() throws IOException, ClassNotFoundException {
         try {
             file2Map();
+            jsonFile2Map();
         } catch (IOException e) {
             e.printStackTrace();
         } catch (ClassNotFoundException e) {
@@ -36,6 +40,7 @@ public class KeyLogger {
                 map.put(virtualKeyCode, nextValue);
                 try {
                     map2File();
+                    map2JsonFile();
                 } catch (IOException e) {
                     e.printStackTrace();
                     throw new RuntimeException(e);
@@ -52,6 +57,7 @@ public class KeyLogger {
             e.printStackTrace();
         } finally {
             map2File();
+            map2JsonFile();
             keyboardHook.shutdownHook();
         }
     }
@@ -64,12 +70,24 @@ public class KeyLogger {
         fileOutputStream.close();
     }
 
+    private void map2JsonFile() throws IOException {
+        FileOutputStream fileOutputStream = new FileOutputStream(logJsonFilePath);
+        om.writeValue(fileOutputStream, map);
+        fileOutputStream.close();
+    }
+
     private void file2Map() throws IOException, ClassNotFoundException {
         FileInputStream fileInputStream = new FileInputStream(logFilePath);
         ObjectInputStream objectInputStream = new ObjectInputStream(fileInputStream);
         //        FIXME try to generify KeyLogger.java
         map = (HashMap<Integer, Integer>) objectInputStream.readObject();
         objectInputStream.close();
+        fileInputStream.close();
+    }
+
+    private void jsonFile2Map() throws IOException, ClassNotFoundException {
+        FileInputStream fileInputStream = new FileInputStream(logJsonFilePath);
+        om.readValue(fileInputStream, HashMap.class);
         fileInputStream.close();
     }
 }
